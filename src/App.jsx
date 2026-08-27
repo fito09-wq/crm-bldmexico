@@ -426,10 +426,10 @@ export default function CRMSlowpitch() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontFamily: "Teko, sans-serif", fontSize: 34, fontWeight: 700, letterSpacing: 0.5, color: "#6EE07A", lineHeight: 1 }}>
-              DIAMANTE CRM
+              CRM BLD MEXICO
             </span>
             <span style={{ fontFamily: "IBM Plex Mono, monospace", fontSize: 12, color: "#8FA69B" }}>
-              Temporada 2 · 2026
+              Temporada 3 · 2026
             </span>
           </div>
           <div style={{ display: "flex", gap: 18, fontFamily: "IBM Plex Mono, monospace", fontSize: 12, color: "#8FA69B" }}>
