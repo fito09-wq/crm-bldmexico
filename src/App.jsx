@@ -387,11 +387,11 @@ export default function CRMSlowpitch() {
     setState((s) => ({ ...s, schedules: s.schedules.map((sc) => (sc.id === id ? { ...sc, ...patch } : sc)) }));
   }, []);
 
-  const TABS = [
+    const TABS = [
     { id: "dashboard", label: "Tablero" },
     { id: "equipos", label: "Equipos" },
-    { id: "ligas", label: "Ligas y precios" },
-    { id: "regresos", label: "Equipos que regresan" },
+    { id: "regresos", label: "Equipos que regresa" },
+    { id: "ligas", label: "Ligas y equipos" },
   ];
 
   return (
