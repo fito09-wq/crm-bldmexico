@@ -1036,11 +1036,25 @@ function Ligas({ leagues, schedules, updateLeague, updateSchedule, leagueStats }
 
 /* ------------------------- Regresos ------------------------- */
 function Regresos({ rows, openNew, openEdit }) {
+  const [search, setSearch] = useState("");
+
   const counts = useMemo(() => {
     const c = { Sí: 0, No: 0, "No sabe": 0, "Sin respuesta": 0 };
     rows.forEach((r) => { c[r.vanAVolver] = (c[r.vanAVolver] || 0) + 1; });
     return c;
   }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      const confirmadoTexto = r.confirmado ? "si sí confirmado" : "no sin confirmar";
+      const hay = [
+        r.manager, r.telefono, r.categoria, r.equipo, r.vanAVolver, r.observaciones, confirmadoTexto,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
 
   return (
     <div>
@@ -1050,11 +1064,31 @@ function Regresos({ rows, openNew, openEdit }) {
         ))}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <input
+          className="crm-input"
+          placeholder="Buscar por manager, teléfono, categoría, equipo, estatus u observaciones…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            background: "#131F1A",
+            border: "1px solid #2A3B33",
+            color: "#F5F3EC",
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontSize: 13,
+            fontFamily: "Inter, sans-serif",
+            minWidth: 260,
+            flex: "1 1 260px",
+          }}
+        />
+        <span style={{ fontSize: 12, color: "#8FA69B", fontFamily: "IBM Plex Mono, monospace" }}>
+          {filteredRows.length} de {rows.length}
+        </span>
         <button
           className="crm-btn"
           onClick={openNew}
-          style={{ background: "#6EE07A", color: "#0B1210", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          style={{ marginLeft: "auto", background: "#6EE07A", color: "#0B1210", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
         >
           + Registrar seguimiento
         </button>
@@ -1070,14 +1104,16 @@ function Regresos({ rows, openNew, openEdit }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {filteredRows.length === 0 && (
               <tr>
                 <td colSpan={8} style={{ padding: "26px 12px", textAlign: "center", color: "#8FA69B" }}>
-                  Aún no hay seguimientos de equipos que regresan. Registra el primero.
+                  {rows.length === 0
+                    ? "Aún no hay seguimientos de equipos que regresan. Registra el primero."
+                    : "Sin resultados para esa búsqueda."}
                 </td>
               </tr>
             )}
-            {rows.map((r) => {
+            {filteredRows.map((r) => {
               const wa = waLink(r.telefono);
               return (
                 <tr key={r.id} className="crm-row" style={{ borderTop: "1px solid #1F2E27", cursor: "pointer" }} onClick={() => openEdit(r)}>
