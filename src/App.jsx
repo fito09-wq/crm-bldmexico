@@ -1223,7 +1223,7 @@ function ReturnModal({ row, onSave, onDelete, onClose }) {
         <button className="crm-btn" onClick={onClose} style={{ background: "transparent", border: "1px solid #2A3B33", color: "#8FA69B", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>Cancelar</button>
         <button
           className="crm-btn"
-          onClick={() => { if (!form.manager.trim() && !form.equipo.trim()) return; onSave(form); }}
+                    onClick={() => { if (!form.manager.trim() && !form.equipo.trim()) return; onSave(form, row); }}
           style={{ background: "#6EE07A", color: "#0B1210", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
         >
           Guardar
