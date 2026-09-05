@@ -1208,9 +1208,14 @@ function ReturnModal({ row, onSave, onDelete, onClose }) {
           {VUELVEN_OPTS.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </Field>
-      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, margin: "4px 0 14px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, margin: "4px 0 10px" }}>
         <input type="checkbox" checked={form.confirmado} onChange={(e) => set("confirmado", e.target.checked)} /> Confirmado
       </label>
+      {form.confirmado && !row.confirmado && (
+        <div style={{ background: "#6EE07A1E", border: "1px solid #6EE07A55", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "#6EE07A", marginBottom: 14 }}>
+          ✅ Al guardar, se creará automáticamente el registro de este equipo en la sección Equipos.
+        </div>
+      )}
       <Field label="Observaciones">
         <textarea style={{ ...fieldStyle(), minHeight: 60, resize: "vertical" }} value={form.observaciones} onChange={(e) => set("observaciones", e.target.value)} />
       </Field>
