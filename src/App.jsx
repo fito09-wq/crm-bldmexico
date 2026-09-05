@@ -361,17 +361,59 @@ export default function CRMSlowpitch() {
     setToast({ type: "ok", msg: "Equipo eliminado." });
   }, []);
 
-  const saveReturning = useCallback((r) => {
+   const saveReturning = useCallback((r, originalRow) => {
+    const wasConfirmed = originalRow ? !!originalRow.confirmado : false;
+    const nowConfirmed = !!r.confirmado;
+    const equipoNombre = (r.equipo || "").trim();
+    const willAutoCreate =
+      nowConfirmed &&
+      !wasConfirmed &&
+      equipoNombre &&
+      !state.teams.some((t) => t.nombreEquipo.trim().toLowerCase() === equipoNombre.toLowerCase());
+
     setState((s) => {
       const exists = s.returning.some((x) => x.id === r.id);
-      return {
-        ...s,
-        returning: exists ? s.returning.map((x) => (x.id === r.id ? r : x)) : [...s.returning, { ...r, id: r.id || uid() }],
-      };
+      const newReturning = exists
+        ? s.returning.map((x) => (x.id === r.id ? r : x))
+        : [...s.returning, { ...r, id: r.id || uid() }];
+
+      let newTeams = s.teams;
+      if (willAutoCreate) {
+        const matchedLeague = s.leagues.find(
+          (l) => l.nombre.trim().toLowerCase() === (r.categoria || "").trim().toLowerCase()
+        );
+        newTeams = [
+          ...s.teams,
+          {
+            id: uid(),
+            subdelegado: "",
+            telSubdelegado: "",
+            manager: r.manager,
+            telManager: r.telefono,
+            liga: matchedLeague ? matchedLeague.id : s.leagues[0]?.id || "",
+            nombreEquipo: r.equipo,
+            nombreAnterior: "",
+            roster: false,
+            fotos: false,
+            factura: "",
+            status: "Confirmado",
+            valeConsumo: false,
+            pago: "Sin abonar",
+            observaciones: r.observaciones
+              ? `Confirmado desde seguimiento de regresos. ${r.observaciones}`
+              : "Confirmado desde seguimiento de regresos.",
+          },
+        ];
+      }
+
+      return { ...s, returning: newReturning, teams: newTeams };
     });
     setReturnModal(null);
-    setToast({ type: "ok", msg: "Registro guardado." });
-  }, []);
+    setToast({
+      type: "ok",
+      msg: willAutoCreate ? "Confirmado — se creó el registro del equipo en Equipos." : "Registro guardado.",
+    });
+  }, [state.teams]);
 
   const deleteReturning = useCallback((id) => {
     setState((s) => ({ ...s, returning: s.returning.filter((x) => x.id !== id) }));
