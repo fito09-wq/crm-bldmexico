@@ -131,7 +131,7 @@ const waLinkWithText = (phone, text) => {
 const buildConfirmMessage = (nombreEquipo, managerNombre, ligaNombre) =>
   `¡Hola ${managerNombre || ""}! 👋 Te confirmamos que el equipo *${nombreEquipo || ""}*` +
   `${ligaNombre ? ` (liga ${ligaNombre})` : ""} quedó registrado en BLD - Big League Dreams, Temporada 3 · 2026.` +
-  ` ¡Nos vemos en el diamante! ⚾🥎`;
+  ` ¡Nos vemos en el campo! 🥎`;
 
 /* ---------- Signature element: base-diamond gauge ---------- */
 function DiamondGauge({ pct, size = 84 }) {
