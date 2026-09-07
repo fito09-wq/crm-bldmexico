@@ -430,9 +430,9 @@ export default function CRMSlowpitch() {
   }, []);
 
   const TABS = [
-    { id: "dashboard", label: "Tablero" },
-    { id: "equipos", label: "Equipos" },
-    { id: "regresos", label: "Equipos que regresa" },
+    { id: "dashboard", label: "Dashboard" },
+    { id: "equipos", label: "Equipos Confirmados" },
+    { id: "regresos", label: "Registro Equipos Actuales y Nuevos" },
     { id: "ligas", label: "Ligas y equipos" },
   ];
 
