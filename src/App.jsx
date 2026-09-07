@@ -122,6 +122,17 @@ const waLink = (phone) => {
   return `https://wa.me/${withCountry}`;
 };
 
+const waLinkWithText = (phone, text) => {
+  const base = waLink(phone);
+  if (!base) return null;
+  return `${base}?text=${encodeURIComponent(text)}`;
+};
+
+const buildConfirmMessage = (nombreEquipo, managerNombre, ligaNombre) =>
+  `¡Hola ${managerNombre || ""}! 👋 Te confirmamos que el equipo *${nombreEquipo || ""}*` +
+  `${ligaNombre ? ` (liga ${ligaNombre})` : ""} quedó registrado en BLD - Big League Dreams, Temporada 3 · 2026.` +
+  ` ¡Nos vemos en el diamante! ⚾🥎`;
+
 /* ---------- Signature element: base-diamond gauge ---------- */
 function DiamondGauge({ pct, size = 84 }) {
   const clamped = Math.max(0, Math.min(100, pct));
@@ -343,7 +354,11 @@ export default function CRMSlowpitch() {
     });
   }, [state.teams, filterLiga, filterStatus, search]);
 
-  const saveTeam = useCallback((team) => {
+  const saveTeam = useCallback((team, originalTeam) => {
+    const wasConfirmed = originalTeam ? originalTeam.status === "Confirmado" : false;
+    const nowConfirmed = team.status === "Confirmado";
+    const willNotify = nowConfirmed && !wasConfirmed;
+
     setState((s) => {
       const exists = s.teams.some((t) => t.id === team.id);
       return {
@@ -352,8 +367,21 @@ export default function CRMSlowpitch() {
       };
     });
     setTeamModal(null);
-    setToast({ type: "ok", msg: "Equipo guardado." });
-  }, []);
+
+    if (willNotify) {
+      const league = state.leagues.find((l) => l.id === team.liga);
+      const msg = buildConfirmMessage(team.nombreEquipo, team.manager, league ? league.nombre : "");
+      const link = waLinkWithText(team.telManager, msg);
+      if (link) {
+        window.open(link, "_blank");
+        setToast({ type: "ok", msg: "Equipo confirmado — se abrió WhatsApp con el mensaje listo para enviar." });
+      } else {
+        setToast({ type: "ok", msg: "Equipo confirmado (sin teléfono para enviar WhatsApp)." });
+      }
+    } else {
+      setToast({ type: "ok", msg: "Equipo guardado." });
+    }
+  }, [state.leagues]);
 
   const deleteTeam = useCallback((id) => {
     setState((s) => ({ ...s, teams: s.teams.filter((t) => t.id !== id) }));
@@ -409,11 +437,23 @@ export default function CRMSlowpitch() {
       return { ...s, returning: newReturning, teams: newTeams };
     });
     setReturnModal(null);
-    setToast({
-      type: "ok",
-      msg: willAutoCreate ? "Confirmado — se creó el registro del equipo en Equipos." : "Registro guardado.",
-    });
-  }, [state.teams]);
+
+    if (willAutoCreate) {
+      const matchedLeague = state.leagues.find(
+        (l) => l.nombre.trim().toLowerCase() === (r.categoria || "").trim().toLowerCase()
+      );
+      const msg = buildConfirmMessage(r.equipo, r.manager, matchedLeague ? matchedLeague.nombre : r.categoria);
+      const link = waLinkWithText(r.telefono, msg);
+      if (link) {
+        window.open(link, "_blank");
+        setToast({ type: "ok", msg: "Confirmado — equipo creado y WhatsApp listo para enviar." });
+      } else {
+        setToast({ type: "ok", msg: "Confirmado — se creó el registro del equipo en Equipos." });
+      }
+    } else {
+      setToast({ type: "ok", msg: "Registro guardado." });
+    }
+  }, [state.teams, state.leagues]);
 
   const deleteReturning = useCallback((id) => {
     setState((s) => ({ ...s, returning: s.returning.filter((x) => x.id !== id) }));
@@ -430,9 +470,9 @@ export default function CRMSlowpitch() {
   }, []);
 
   const TABS = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "equipos", label: "Equipos Confirmados" },
-    { id: "regresos", label: "Registro Equipos Actuales y Nuevos" },
+    { id: "dashboard", label: "Tablero" },
+    { id: "equipos", label: "Equipos" },
+    { id: "regresos", label: "Equipos que regresa" },
     { id: "ligas", label: "Ligas y equipos" },
   ];
 
@@ -659,12 +699,12 @@ function StatPill({ label, value, sub }) {
 
 /* ------------------------- Exportar (para pegar en Google Sheets) ------------------------- */
 function buildTSV(teams, leagueById) {
-  const headers = ["Subdelegado", "Telefono Subdelegado", "Nombre Manager", "Telefono", "Liga", "Nombre del Equipo", "Nombre Anterior", "Roster", "Fotos", "Factura", "Status", "Vale de Consumo", "Pago", "Observaciones"];
+  const headers = ["Subdelegado", "Telefono Subdelegado", "Nombre Manager", "Telefono", "Liga", "Nombre del Equipo", "Nombre Anterior", "Roster", "Fotos", "Factura", "Link Factura", "Status", "Vale de Consumo", "Pago", "Observaciones"];
   const rows = teams.map((t) => [
     t.subdelegado, t.telSubdelegado, t.manager, t.telManager,
     leagueById[t.liga] ? leagueById[t.liga].nombre : t.liga,
     t.nombreEquipo, t.nombreAnterior, t.roster ? "SI" : "", t.fotos ? "SI" : "",
-    t.factura, t.status, t.valeConsumo ? "SI" : "NO", t.pago, t.observaciones,
+    t.factura, t.facturaUrl, t.status, t.valeConsumo ? "SI" : "NO", t.pago, t.observaciones,
   ]);
   return [headers, ...rows].map((r) => r.map((c) => (c === undefined || c === null ? "" : String(c))).join("\t")).join("\n");
 }
@@ -826,7 +866,25 @@ function Equipos({ leagues, filteredTeams, filterLiga, setFilterLiga, filterStat
                       "—"
                     )}
                   </td>
-                  <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono, monospace" }}>{t.factura || "—"}</td>
+                  <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono, monospace" }}>
+                    {t.factura ? (
+                      t.facturaUrl ? (
+                        <a
+                          href={t.facturaUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: "#6EE07A", textDecoration: "underline" }}
+                        >
+                          {t.factura}
+                        </a>
+                      ) : (
+                        t.factura
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td style={{ padding: "10px 12px" }}><Badge text={t.status} color={STATUS_COLOR[t.status]} /></td>
                   <td style={{ padding: "10px 12px" }}><Badge text={t.pago} color={PAGO_COLOR[t.pago]} /></td>
                   <td style={{ padding: "10px 12px" }}>{t.valeConsumo ? "Sí" : "No"}</td>
@@ -928,6 +986,7 @@ function TeamModal({ team, leagues, onSave, onDelete, onClose }) {
     roster: !!team.roster,
     fotos: !!team.fotos,
     factura: team.factura || "",
+    facturaUrl: team.facturaUrl || "",
     status: team.status || "Interesado",
     valeConsumo: !!team.valeConsumo,
     pago: team.pago || "Sin abonar",
@@ -947,7 +1006,10 @@ function TeamModal({ team, leagues, onSave, onDelete, onClose }) {
             {leagues.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
           </select>
         </Field>
-        <Field label="Factura"><input style={fieldStyle()} value={form.factura} onChange={(e) => set("factura", e.target.value)} /></Field>
+        <Field label="Factura (folio)"><input style={fieldStyle()} value={form.factura} onChange={(e) => set("factura", e.target.value)} placeholder="F8221" /></Field>
+        <Field label="Link de la factura">
+          <input style={fieldStyle()} value={form.facturaUrl} onChange={(e) => set("facturaUrl", e.target.value)} placeholder="https://…" />
+        </Field>
         <Field label="Manager"><input style={fieldStyle()} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></Field>
         <Field label="Teléfono manager"><input style={fieldStyle()} value={form.telManager} onChange={(e) => set("telManager", e.target.value)} placeholder="10 dígitos" /></Field>
         <Field label="Subdelegado (opcional)"><input style={fieldStyle()} value={form.subdelegado} onChange={(e) => set("subdelegado", e.target.value)} /></Field>
@@ -974,21 +1036,41 @@ function TeamModal({ team, leagues, onSave, onDelete, onClose }) {
           <input type="checkbox" checked={form.valeConsumo} onChange={(e) => set("valeConsumo", e.target.checked)} /> Vale de consumo
         </label>
       </div>
+      {form.status === "Confirmado" && team.status !== "Confirmado" && (
+        <div style={{ background: "#6EE07A1E", border: "1px solid #6EE07A55", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "#6EE07A", marginBottom: 14 }}>
+          ✅ Al guardar, se abrirá WhatsApp con un mensaje de confirmación listo para enviar a este equipo.
+        </div>
+      )}
       <Field label="Observaciones">
         <textarea style={{ ...fieldStyle(), minHeight: 60, resize: "vertical" }} value={form.observaciones} onChange={(e) => set("observaciones", e.target.value)} />
       </Field>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
-        <button className="crm-btn" onClick={onClose} style={{ background: "transparent", border: "1px solid #2A3B33", color: "#8FA69B", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>Cancelar</button>
-        <button
-          className="crm-btn"
-          onClick={() => {
-            if (!form.nombreEquipo.trim()) return;
-            onSave(form);
-          }}
-          style={{ background: "#6EE07A", color: "#0B1210", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-        >
-          Guardar equipo
-        </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 8 }}>
+        {form.status === "Confirmado" && waLink(form.telManager) ? (
+          <a
+            href={waLinkWithText(
+              form.telManager,
+              buildConfirmMessage(form.nombreEquipo, form.manager, leagues.find((l) => l.id === form.liga)?.nombre || "")
+            )}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 12, color: "#6EE07A", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}
+          >
+            <IconWA /> Reenviar confirmación por WhatsApp
+          </a>
+        ) : <span />}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="crm-btn" onClick={onClose} style={{ background: "transparent", border: "1px solid #2A3B33", color: "#8FA69B", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>Cancelar</button>
+          <button
+            className="crm-btn"
+            onClick={() => {
+              if (!form.nombreEquipo.trim()) return;
+              onSave(form, team);
+            }}
+            style={{ background: "#6EE07A", color: "#0B1210", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          >
+            Guardar equipo
+          </button>
+        </div>
       </div>
     </ModalShell>
   );
